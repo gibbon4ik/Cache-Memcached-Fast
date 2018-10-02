@@ -241,5 +241,8 @@ extern
 int
 client_server_versions(struct client *c, struct result_object *o);
 
+extern
+void
+client_set_onerror(struct client *c, void *memd, error_callback onerror);
 
 #endif /* ! CLIENT_H */
