@@ -45,6 +45,7 @@ our $VERSION = '0.25';
       serialize_methods => [ \&Storable::freeze, \&Storable::thaw ],
       utf8 => ($^V ge v5.8.1 ? 1 : 0),
       max_size => 512 * 1024,
+      onerror => \&catch_error,
   });
 
   # Get server versions.
@@ -467,6 +468,14 @@ sent to the server, and rejected there.  You may set I<max_size> to a
 smaller value to avoid this.
 
 
+=item I<onerror>
+
+  onerror => \&catch_error,
+  (default: none)
+
+The value is a code reference for error catch routine.
+
+
 =item I<check_args>
 
   check_args => 'skip'
@@ -513,6 +522,7 @@ our %known_params = (
     utf8 => 1,
     max_size => 1,
     check_args => 1,
+    onerror => 1,
 );
 
 
@@ -643,6 +653,19 @@ I<Return:> none.
 
 # See Fast.xs.
 
+=item C<onerror>
+
+  $memd->onerror(\&catch_error);
+
+Set code reference for error catch routine.
+Without arguments return current error catch routine.
+Pass I<undef> disable error catch.
+
+I<Return:> current error catch routine.
+
+=cut
+
+# See Fast.xs.
 
 =item C<namespace>
 

@@ -57,9 +57,6 @@
 static const char eol[2] = "\r\n";
 
 
-typedef unsigned long long generation_type;
-
-
 struct value_state
 {
   void *opaque;
@@ -90,9 +87,6 @@ enum command_phase
 
 
 enum socket_mode_e { NOT_TCP = -1, TCP_LATENCY, TCP_THROUGHPUT };
-
-
-struct client;
 
 
 struct command_state
@@ -274,35 +268,6 @@ struct index_node
 };
 
 
-struct client
-{
-  struct array pollfds;
-  struct array servers;
-
-  struct dispatch_state dispatch;
-
-  char *prefix;
-  size_t prefix_len;
-
-  int connect_timeout;          /* 1/1000 sec.  */
-  int io_timeout;               /* 1/1000 sec.  */
-  int max_failures;
-  int failure_timeout;          /* 1 sec.  */
-  int close_on_error;
-  int nowait;
-  int hash_namespace;
-
-  struct array index_list;
-  struct array str_buf;
-  int iov_max;
-
-  generation_type generation;
-
-  struct result_object *object;
-  int noreply;
-};
-
-
 static inline
 void
 command_state_reset(struct command_state *state, int str_step,
@@ -456,6 +421,8 @@ client_reinit(struct client *c)
 
   c->generation = 1;            /* Different from initial command state.  */
   c->object = NULL;
+  c->error_cb = NULL;
+  c->memd = NULL;
 }
 
 
@@ -551,6 +518,14 @@ client_add_server(struct client *c, const char *host, size_t host_len,
   array_push(c->servers);
 
   return MEMCACHED_SUCCESS;
+}
+
+
+void
+client_set_onerror(struct client *c, void *memd, error_callback onerror)
+{
+  c->error_cb = onerror;
+  c->memd = memd;
 }
 
 
@@ -1177,8 +1152,9 @@ parse_nowait_reply(struct command_state *state)
 
 static
 void
-client_mark_failed(struct client *c, struct server *s)
+client_mark_failed(struct client *c, struct server *s, const char *error)
 {
+  char buf[128];
   if (s->cmd_state.fd != -1)
     {
       close(s->cmd_state.fd);
@@ -1204,6 +1180,14 @@ client_mark_failed(struct client *c, struct server *s)
       */
       if (s->failure_count == 1 || s->failure_count == c->max_failures)
         s->failure_expires = now + c->failure_timeout;
+    }
+  if (c->error_cb)
+    {
+      if (s->port)
+        snprintf(buf, sizeof(buf), "%s:%s", s->host, s->port);
+      else
+       snprintf(buf, sizeof(buf), "%s", s->host);
+      (c->error_cb)(c, error, buf);
     }
 }
 
@@ -1237,7 +1221,7 @@ send_request(struct command_state *state, struct server *s)
       if (res <= 0)
         {
           deactivate(state);
-          client_mark_failed(state->client, s);
+          client_mark_failed(state->client, s, "request");
 
           return MEMCACHED_CLOSED;
         }
@@ -1403,7 +1387,7 @@ process_reply(struct command_state *state, struct server *s)
         case MEMCACHED_UNKNOWN:
         case MEMCACHED_CLOSED:
           deactivate(state);
-          client_mark_failed(state->client, s);
+	  client_mark_failed(state->client, s, "reply");
 
           /* Fall into below.  */
 
@@ -1570,7 +1554,7 @@ client_execute(struct client *c)
                   if (state->phase == PHASE_VALUE)
                     state->object->free(state->u.value.opaque);
 
-                  client_mark_failed(c, s);
+		  client_mark_failed(c, s, "execute");
                 }
             }
 
@@ -1668,7 +1652,7 @@ get_server_fd(struct client *c, struct server *s)
     }
 
   if (state->fd == -1)
-    client_mark_failed(c, s);
+    client_mark_failed(c, s, "connect");
 
   return state->fd;
 }

@@ -34,11 +34,42 @@ struct xs_state
   SV *decompress_method;
   SV *serialize_method;
   SV *deserialize_method;
+  SV *onerror_method;
   int utf8;
   size_t max_size;
 };
 
 typedef struct xs_state Cache_Memcached_Fast;
+
+static
+void
+onerror(struct client *c, const char *error, char *info)
+{
+    dTHX;
+    Cache_Memcached_Fast *memd;
+
+    if (! c->memd)
+      return;
+    memd = (Cache_Memcached_Fast *) c->memd;
+    if (! memd->onerror_method)
+      return;
+
+    dSP;
+	ENTER;
+    SAVETMPS;
+
+    PUSHMARK(SP);
+    XPUSHs(sv_2mortal(newSVpv(error, strlen(error))));
+    XPUSHs(sv_2mortal(newSVpv(info, strlen(info))));
+    PUTBACK;
+
+    call_sv(memd->onerror_method, G_DISCARD);
+
+    FREETMPS;
+    LEAVE;
+    return;
+}
+
 
 static inline
 SV**
@@ -338,6 +369,17 @@ parse_config(pTHX_ Cache_Memcached_Fast *memd, HV *conf)
     memd->max_size = SvUV(*ps);
   else
     memd->max_size = 1024 * 1024;
+
+  memd->onerror_method = NULL;
+  ps = hv_fetch(conf, "onerror", 7, 0);
+  if (ps)
+    SvGETMAGIC(*ps);
+  if (ps && SvOK(*ps))
+    {
+    memd->onerror_method = newSVsv(*ps);
+    client_set_onerror(c, (void *) memd, &onerror);
+    }
+
 
   parse_compress(aTHX_ memd, conf);
   parse_serialize(aTHX_ memd, conf);
@@ -715,6 +757,9 @@ _destroy(memd)
             SvREFCNT_dec(memd->serialize_method);
             SvREFCNT_dec(memd->deserialize_method);
           }
+        if (memd->onerror_method)
+          SvREFCNT_dec(memd->onerror_method);
+
         SvREFCNT_dec(memd->servers);
         free(memd);
 
@@ -729,6 +774,37 @@ enable_compress(memd, enable)
           warn("Compression module was not found, can't enable compression");
         else if ((memd->compress_threshold > 0) != enable)
           memd->compress_threshold = -memd->compress_threshold;
+
+SV *
+onerror(memd,...)
+        Cache_Memcached_Fast *  memd
+    PROTOTYPE: $;$
+    PREINIT:
+        SV *code;
+    CODE:
+        RETVAL = newSV(0);
+        sv_2mortal((SV *) RETVAL);
+        if (memd->onerror_method)
+          RETVAL = newSVsv(memd->onerror_method);
+        if (items > 1)
+          {
+            if (memd->onerror_method)
+              SvREFCNT_dec(memd->onerror_method);
+            code = newSVsv(ST(1));
+            SvGETMAGIC(code);
+            if (SvOK(code))
+              {
+                memd->onerror_method = code;
+                client_set_onerror(memd->c, (void *) memd, &onerror);
+              }
+            else
+              {
+                memd->onerror_method = NULL;
+                client_set_onerror(memd->c, (void *) memd, NULL);
+              }
+          }
+    OUTPUT:
+        RETVAL
 
 
 void

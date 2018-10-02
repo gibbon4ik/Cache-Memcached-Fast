@@ -25,9 +25,8 @@
 #define CLIENT_H 1
 
 #include <stddef.h>
-
-
-struct client;
+#include "array.h"
+#include "dispatch_key.h"
 
 
 enum server_status {
@@ -70,6 +69,7 @@ typedef void *(*alloc_value_func)(value_size_type value_size, void **opaque);
 typedef void (*store_value_func)(void *arg, void *opaque, int key_index,
                                  void *meta);
 typedef void (*free_value_func)(void *opaque);
+typedef unsigned long long generation_type;
 
 struct result_object
 {
@@ -87,6 +87,38 @@ struct meta_object
   cas_type cas;
 };
 
+struct client;
+typedef void (*error_callback)(struct client *, const char *, char *);
+
+struct client
+{
+  struct array pollfds;
+  struct array servers;
+
+  struct dispatch_state dispatch;
+
+  char *prefix;
+  size_t prefix_len;
+
+  int connect_timeout;          /* 1/1000 sec.  */
+  int io_timeout;               /* 1/1000 sec.  */
+  int max_failures;
+  int failure_timeout;          /* 1 sec.  */
+  int close_on_error;
+  int nowait;
+  int hash_namespace;
+
+  struct array index_list;
+  struct array str_buf;
+  int iov_max;
+
+  generation_type generation;
+
+  struct result_object *object;
+  int noreply;
+  error_callback error_cb;
+  void *memd;
+};
 
 extern
 struct client *
