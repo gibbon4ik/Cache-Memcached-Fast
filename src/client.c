@@ -488,6 +488,14 @@ client_set_hash_namespace(struct client *c, int enable)
 }
 
 
+void
+client_set_onerror(struct client *c, void *memd, error_callback onerror)
+{
+  c->error_cb = onerror;
+  c->memd = memd;
+}
+
+
 int
 client_add_server(struct client *c, const char *host, size_t host_len,
                   const char *port, size_t port_len, double weight,
