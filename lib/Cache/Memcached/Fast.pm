@@ -524,6 +524,7 @@ our %known_params = (
     max_size => 1,
     check_args => 1,
     onerror => 1,
+    no_hash => 1,
 );
 
 
