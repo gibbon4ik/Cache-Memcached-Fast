@@ -124,7 +124,7 @@ compatible_add_server(struct dispatch_state *state, double weight, int index)
 static inline
 int
 compatible_get_server(struct dispatch_state *state,
-                      const char *key, size_t key_len)
+                      const char *key, size_t key_len, char salt)
 {
   /*
     For compatibility with Cache::Memcached we do the following: first
@@ -138,6 +138,9 @@ compatible_get_server(struct dispatch_state *state,
   */
   struct continuum_point *p;
   unsigned int crc32 = compute_crc32_add(state->prefix_hash, key, key_len);
+  if (salt)
+    crc32 = compute_crc32_add(crc32, &salt, 1);
+
   unsigned int hash = (crc32 >> 16) & 0x00007fffU;
   unsigned int point = hash % (unsigned int) (state->total_weight + 0.5);
 
@@ -151,7 +154,6 @@ compatible_get_server(struct dispatch_state *state,
   p = dispatch_find_bucket(state, point);
   return p->index;
 }
-
 
 static inline
 int
@@ -188,7 +190,6 @@ ketama_crc32_add_server(struct dispatch_state *state,
       buf[1] = (point >> 8) & 0xff;
       buf[2] = (point >> 16) & 0xff;
       buf[3] = (point >> 24) & 0xff;
-
       point = compute_crc32_add(crc32, buf, 4);
 
       if (! array_empty(state->buckets))
@@ -239,9 +240,11 @@ ketama_crc32_add_server(struct dispatch_state *state,
 static inline
 int
 ketama_crc32_get_server(struct dispatch_state *state,
-                        const char *key, size_t key_len)
+                        const char *key, size_t key_len, char salt)
 {
   unsigned int point = compute_crc32_add(state->prefix_hash, key, key_len);
+  if (salt)
+    point = compute_crc32_add(point, &salt, 1);
   struct continuum_point *p = dispatch_find_bucket(state, point);
   return p->index;
 }
@@ -295,7 +298,7 @@ dispatch_add_server(struct dispatch_state *state,
 
 
 int
-dispatch_key(struct dispatch_state *state, const char *key, size_t key_len)
+dispatch_key(struct dispatch_state *state, const char *key, size_t key_len, char salt)
 {
   if (state->server_count == 0)
     return -1;
@@ -309,8 +312,8 @@ dispatch_key(struct dispatch_state *state, const char *key, size_t key_len)
   else
     {
       if (state->ketama_points > 0)
-        return ketama_crc32_get_server(state, key, key_len);
+        return ketama_crc32_get_server(state, key, key_len, salt);
       else
-        return compatible_get_server(state, key, key_len);
+        return compatible_get_server(state, key, key_len, salt);
     }
 }

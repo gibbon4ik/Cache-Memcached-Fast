@@ -1765,19 +1765,25 @@ get_state(struct client *c, int index, const char *key, size_t key_len,
 {
   struct server *s;
   int server_index, fd;
+  struct dispatch_state *state = &c->dispatch;
+  char try;
 
-  server_index = dispatch_key(&c->dispatch, key, key_len);
-  if (server_index == -1)
-    return NULL;
+  for (try = 0; try < 10; try++) {
 
-  s = array_elem(c->servers, struct server, server_index);
+    server_index = dispatch_key(state, key, key_len, try);
+    if (server_index == -1)
+      return NULL;
 
-  fd = get_server_fd(c, s);
-  if (fd == -1)
-    return NULL;
+    s = array_elem(c->servers, struct server, server_index);
 
-  return init_state(&s->cmd_state, index, request_size, str_size,
-                    parse_reply);
+    fd = get_server_fd(c, s);
+    if (fd != -1)
+      return init_state(&s->cmd_state, index, request_size, str_size,
+                        parse_reply);
+    if (state->server_count == 1)
+      break;
+  }
+  return NULL;
 }
 
 
