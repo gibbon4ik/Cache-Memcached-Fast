@@ -1779,7 +1779,7 @@ get_state(struct client *c, int index, const char *key, size_t key_len,
   /* try recalc key hash if server in error state */
   for (salt = 0; salt < 90; salt += 6) {
 
-    server_index = dispatch_key(state, key, key_len, try);
+    server_index = dispatch_key(state, key, key_len, salt);
     if (server_index == -1)
       return NULL;
 
