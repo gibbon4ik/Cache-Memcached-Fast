@@ -370,6 +370,8 @@ client_init()
 
   c->object = NULL;
   c->noreply = 0;
+  c->error_cb = NULL;
+  c->memd = NULL;
   c->no_rehash = 0;
 
   return c;
@@ -1194,7 +1196,7 @@ client_mark_failed(struct client *c, struct server *s, const char *error)
       if (s->port)
         snprintf(buf, sizeof(buf), "%s:%s", s->host, s->port);
       else
-       snprintf(buf, sizeof(buf), "%s", s->host);
+        snprintf(buf, sizeof(buf), "%s", s->host);
       (c->error_cb)(c, error, buf);
     }
 }
