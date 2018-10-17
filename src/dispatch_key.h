@@ -64,7 +64,7 @@ dispatch_add_server(struct dispatch_state *state,
 
 extern
 int
-dispatch_key(struct dispatch_state *state, const char *key, size_t key_len);
+dispatch_key(struct dispatch_state *state, const char *key, size_t key_len, char salt);
 
 
 #endif /* ! DISPATCH_KEY_H */
