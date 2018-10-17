@@ -370,6 +370,7 @@ client_init()
 
   c->object = NULL;
   c->noreply = 0;
+  c->no_rehash = 0;
 
   return c;
 }
@@ -493,6 +494,13 @@ client_set_onerror(struct client *c, void *memd, error_callback onerror)
 {
   c->error_cb = onerror;
   c->memd = memd;
+}
+
+
+void
+client_set_no_rehash(struct client *c, int enable)
+{
+  c->no_rehash = enable;
 }
 
 
@@ -1766,9 +1774,10 @@ get_state(struct client *c, int index, const char *key, size_t key_len,
   struct server *s;
   int server_index, fd;
   struct dispatch_state *state = &c->dispatch;
-  char try;
+  char salt;
 
-  for (try = 0; try < 10; try++) {
+  /* try recalc key hash if server in error state */
+  for (salt = 0; salt < 90; salt += 6) {
 
     server_index = dispatch_key(state, key, key_len, try);
     if (server_index == -1)
@@ -1780,7 +1789,8 @@ get_state(struct client *c, int index, const char *key, size_t key_len,
     if (fd != -1)
       return init_state(&s->cmd_state, index, request_size, str_size,
                         parse_reply);
-    if (state->server_count == 1)
+    /* don't repeat if only one server configured or rehash disabled */
+    if (state->server_count == 1 || c->no_rehash)
       break;
   }
   return NULL;

@@ -46,6 +46,7 @@ our $VERSION = '0.25';
       utf8 => ($^V ge v5.8.1 ? 1 : 0),
       max_size => 512 * 1024,
       onerror => \&catch_error,
+      no_rehash => 1
   });
 
   # Get server versions.

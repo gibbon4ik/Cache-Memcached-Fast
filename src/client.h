@@ -118,6 +118,7 @@ struct client
   int noreply;
   error_callback error_cb;
   void *memd;
+  int no_rehash;
 };
 
 extern
@@ -244,5 +245,9 @@ client_server_versions(struct client *c, struct result_object *o);
 extern
 void
 client_set_onerror(struct client *c, void *memd, error_callback onerror);
+
+extern
+void
+client_set_no_rehash(struct client *c, int enable);
 
 #endif /* ! CLIENT_H */

@@ -380,6 +380,12 @@ parse_config(pTHX_ Cache_Memcached_Fast *memd, HV *conf)
     client_set_onerror(c, (void *) memd, &onerror);
     }
 
+  ps = hv_fetch(conf, "no_rehash", 9, 0);
+  if (ps)
+    SvGETMAGIC(*ps);
+  if (ps && SvOK(*ps))
+    client_set_no_rehash(c, SvTRUE(*ps));
+
 
   parse_compress(aTHX_ memd, conf);
   parse_serialize(aTHX_ memd, conf);
