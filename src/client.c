@@ -1779,7 +1779,7 @@ get_state(struct client *c, int index, const char *key, size_t key_len,
   char salt;
 
   /* try recalc key hash if server in error state */
-  for (salt = 0; salt < 90; salt += 6) {
+  for (salt = 0; salt < 20; ++salt) {
 
     server_index = dispatch_key(state, key, key_len, salt);
     if (server_index == -1)
@@ -1791,10 +1791,20 @@ get_state(struct client *c, int index, const char *key, size_t key_len,
     if (fd != -1)
       return init_state(&s->cmd_state, index, request_size, str_size,
                         parse_reply);
+
     /* don't repeat if only one server configured or rehash disabled */
     if (state->server_count == 1 || c->no_rehash)
-      break;
+      return NULL;
   }
+
+  /* find first active server */
+  for (array_each(c->servers, struct server, s))
+    {
+      fd = get_server_fd(c, s);
+      if (fd != -1)
+        return init_state(&s->cmd_state, index, request_size, str_size,
+                          parse_reply);
+    }
   return NULL;
 }
 
