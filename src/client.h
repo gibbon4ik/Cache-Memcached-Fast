@@ -43,6 +43,8 @@ enum set_cmd_e { CMD_SET, CMD_ADD, CMD_REPLACE, CMD_APPEND, CMD_PREPEND,
 
 enum get_cmd_e { CMD_GET, CMD_GETS };
 
+enum gat_cmd_e { CMD_GAT, CMD_GATS };
+
 enum arith_cmd_e { CMD_INCR, CMD_DECR };
 
 
@@ -211,6 +213,11 @@ client_prepare_get(struct client *c, enum get_cmd_e cmd, int key_index,
 
 extern
 int
+client_prepare_gat(struct client *c, enum gat_cmd_e cmd,
+                   int key_index, const char *key, size_t key_len, const char *exptime, size_t exptime_len);
+
+extern
+int
 client_prepare_incr(struct client *c, enum arith_cmd_e cmd, int key_index,
                     const char *key, size_t key_len, arith_type arg);
 
@@ -227,7 +234,7 @@ client_prepare_touch(struct client *c, int key_index,
 
 extern
 int
-client_execute(struct client *c);
+client_execute(struct client *c, int key_index);
 
 extern
 int
